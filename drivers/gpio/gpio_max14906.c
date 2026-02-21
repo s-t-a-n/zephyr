@@ -400,25 +400,25 @@ static int gpio_max14906_clean_on_power(const struct device *dev)
 	int ret;
 
 	/* Clear the latched faults generated at power up */
-	ret = MAX14906_REG_READ(dev, MAX14906_OPN_WIR_FLT_REG);
+	ret = max149x6_reg_transceive(dev, MAX14906_OPN_WIR_FLT_REG, 0, NULL, MAX149x6_READ);
 	if (ret < 0) {
 		LOG_ERR("Error reading MAX14906_OPN_WIR_FLT_REG");
 		goto err_clean_on_power_max14906;
 	}
 
-	ret = MAX14906_REG_READ(dev, MAX14906_OVR_LD_REG);
+	ret = max149x6_reg_transceive(dev, MAX14906_OVR_LD_REG, 0, NULL, MAX149x6_READ);
 	if (ret < 0) {
 		LOG_ERR("Error reading MAX14906_OVR_LD_REG");
 		goto err_clean_on_power_max14906;
 	}
 
-	ret = MAX14906_REG_READ(dev, MAX14906_SHT_VDD_FLT_REG);
+	ret = max149x6_reg_transceive(dev, MAX14906_SHT_VDD_FLT_REG, 0, NULL, MAX149x6_READ);
 	if (ret < 0) {
 		LOG_ERR("Error reading MAX14906_SHD_VDD_FLT_REG");
 		goto err_clean_on_power_max14906;
 	}
 
-	ret = MAX14906_REG_READ(dev, MAX14906_GLOB_ERR_REG);
+	ret = max149x6_reg_transceive(dev, MAX14906_GLOB_ERR_REG, 0, NULL, MAX149x6_READ);
 	if (ret < 0) {
 		LOG_ERR("Error reading MAX14906_GLOBAL_FLT_REG");
 		goto err_clean_on_power_max14906;
