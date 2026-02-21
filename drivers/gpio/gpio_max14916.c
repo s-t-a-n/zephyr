@@ -500,7 +500,35 @@ static DEVICE_API(gpio, gpio_max14916_api) = {
 		.spi_addr = DT_INST_PROP(id, spi_addr),                                            \
 	};                                                                                         \
                                                                                                    \
-	static struct max14916_data max##model##_##id##_data;                                      \
+	static struct max14916_data max##model##_##id##_data = {                                    \
+		.chan_en.ow_on_en =                                                                 \
+			((DT_INST_PROP_BY_IDX(id, ow_on_en, 0) << 0) |                            \
+			 (DT_INST_PROP_BY_IDX(id, ow_on_en, 1) << 1) |                            \
+			 (DT_INST_PROP_BY_IDX(id, ow_on_en, 2) << 2) |                            \
+			 (DT_INST_PROP_BY_IDX(id, ow_on_en, 3) << 3) |                            \
+			 (DT_INST_PROP_BY_IDX(id, ow_on_en, 4) << 4) |                            \
+			 (DT_INST_PROP_BY_IDX(id, ow_on_en, 5) << 5) |                            \
+			 (DT_INST_PROP_BY_IDX(id, ow_on_en, 6) << 6) |                            \
+			 (DT_INST_PROP_BY_IDX(id, ow_on_en, 7) << 7)),                            \
+		.chan_en.ow_off_en =                                                                \
+			((DT_INST_PROP_BY_IDX(id, ow_off_en, 0) << 0) |                           \
+			 (DT_INST_PROP_BY_IDX(id, ow_off_en, 1) << 1) |                           \
+			 (DT_INST_PROP_BY_IDX(id, ow_off_en, 2) << 2) |                           \
+			 (DT_INST_PROP_BY_IDX(id, ow_off_en, 3) << 3) |                           \
+			 (DT_INST_PROP_BY_IDX(id, ow_off_en, 4) << 4) |                           \
+			 (DT_INST_PROP_BY_IDX(id, ow_off_en, 5) << 5) |                           \
+			 (DT_INST_PROP_BY_IDX(id, ow_off_en, 6) << 6) |                           \
+			 (DT_INST_PROP_BY_IDX(id, ow_off_en, 7) << 7)),                           \
+		.chan_en.sht_vdd_en =                                                               \
+			((DT_INST_PROP_BY_IDX(id, sh_vdd_en, 0) << 0) |                           \
+			 (DT_INST_PROP_BY_IDX(id, sh_vdd_en, 1) << 1) |                           \
+			 (DT_INST_PROP_BY_IDX(id, sh_vdd_en, 2) << 2) |                           \
+			 (DT_INST_PROP_BY_IDX(id, sh_vdd_en, 3) << 3) |                           \
+			 (DT_INST_PROP_BY_IDX(id, sh_vdd_en, 4) << 4) |                           \
+			 (DT_INST_PROP_BY_IDX(id, sh_vdd_en, 5) << 5) |                           \
+			 (DT_INST_PROP_BY_IDX(id, sh_vdd_en, 6) << 6) |                           \
+			 (DT_INST_PROP_BY_IDX(id, sh_vdd_en, 7) << 7)),                           \
+	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(id, &gpio_max14916_init, NULL, &max##model##_##id##_data,            \
 			      &max##model##_##id##_cfg, POST_KERNEL,                               \
