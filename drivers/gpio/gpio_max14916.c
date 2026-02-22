@@ -41,8 +41,6 @@ static int max14916_pars_spi_diag(const struct device *dev, uint8_t *rx_diag_buf
 			LOG_ERR("[DIAG] MAX14916 in SPI diag - GLOBAL FAULT detected");
 		}
 
-		ret = -EIO;
-
 		PRINT_ERR(data->glob.interrupt.reg_bits.SHT_VDD_FLT);
 		PRINT_ERR(data->glob.interrupt.reg_bits.OW_ON_FLT);
 		PRINT_ERR(data->glob.interrupt.reg_bits.OW_OFF_FLT);
@@ -112,11 +110,9 @@ static int gpio_max14916_diag_chan_get(const struct device *dev)
 	const struct max14916_config *config = dev->config;
 	struct max14916_data *data = dev->data;
 	int ret;
-	int diag_ret = 0;
 
 	if (!gpio_pin_get_dt(&config->fault_gpio)) {
 		LOG_ERR("FLT flag is rised");
-		diag_ret = -EIO;
 	}
 
 	ret = max149x6_reg_transceive(dev, MAX14916_INT_REG, 0, NULL, MAX149x6_READ);
@@ -196,10 +192,9 @@ static int gpio_max14916_diag_chan_get(const struct device *dev)
 		if (data->glob.interrupt.reg_bits.COM_ERR) {
 			LOG_ERR("MAX14916 Communication Error");
 		}
-		diag_ret = -EIO;
 	}
 
-	return diag_ret;
+	return 0;
 }
 
 static int gpio_max14916_port_set_bits_raw(const struct device *dev, gpio_port_pins_t pins)

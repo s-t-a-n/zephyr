@@ -41,8 +41,6 @@ static int max14906_pars_spi_diag(const struct device *dev, uint8_t *rx_diag_buf
 
 		uint8_t globlf = MAX149X6_GET_BIT(rx_diag_buff[0], 0);
 
-		ret = -EIO;
-
 		PRINT_ERR(data->glob.interrupt.reg_bits.SHT_VDD_FAULT);
 		PRINT_ERR(data->glob.interrupt.reg_bits.ABOVE_VDD_FAULT);
 		PRINT_ERR(data->glob.interrupt.reg_bits.OW_OFF_FAULT);
@@ -219,10 +217,7 @@ static int gpio_max14906_diag_chan_get(const struct device *dev)
 		}
 	}
 
-	ret = data->chan.doi_level.reg_raw | data->chan.ovr_ld.reg_raw |
-	      data->chan.opn_wir.reg_raw | data->chan.sht_vdd.reg_raw;
-
-	return ret ? -EIO : 0;
+	return 0;
 }
 
 /**
