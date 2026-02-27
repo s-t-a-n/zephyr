@@ -22,12 +22,26 @@ LOG_MODULE_REGISTER(gpio_max14916);
 
 static int max14916_reg_read(const struct device *dev, uint8_t addr)
 {
-	return max149x6_reg_transceive(dev, addr, 0, NULL, MAX149x6_READ);
+	struct max14916_data *data = dev->data;
+	int ret = max149x6_reg_transceive(dev, addr, 0, NULL, MAX149x6_READ);
+
+	if (ret >= 0) {
+		data->reg_cache[addr] = ret;
+	}
+
+	return ret;
 }
 
 static int max14916_reg_write(const struct device *dev, uint8_t addr, uint8_t val)
 {
-	return max149x6_reg_transceive(dev, addr, val, NULL, MAX149x6_WRITE);
+	struct max14916_data *data = dev->data;
+	int ret = max149x6_reg_transceive(dev, addr, val, NULL, MAX149x6_WRITE);
+
+	if (ret == 0) {
+		data->reg_cache[addr] = val;
+	}
+
+	return ret;
 }
 
 static int gpio_max14916_diag_chan_get(const struct device *dev);
@@ -100,7 +114,7 @@ static int max14916_reg_transceive_diag(const struct device *dev, uint8_t addr, 
 	parse_ret = max14916_parse_spi_diag(dev, rx_diag_buff, rw);
 
 	if (parse_ret < 0) {
-		return parse_ret;
+		LOG_ERR("failed to parse diagnostics (%i)", parse_ret);
 	}
 
 	return trans_ret;
@@ -108,12 +122,26 @@ static int max14916_reg_transceive_diag(const struct device *dev, uint8_t addr, 
 
 static int max14916_reg_read_diag(const struct device *dev, uint8_t addr)
 {
-	return max14916_reg_transceive_diag(dev, addr, 0, MAX149x6_READ);
+	struct max14916_data *data = dev->data;
+	int ret = max14916_reg_transceive_diag(dev, addr, 0, MAX149x6_READ);
+
+	if (ret >= 0) {
+		data->reg_cache[addr] = ret;
+	}
+
+	return ret;
 }
 
 static int max14916_reg_write_diag(const struct device *dev, uint8_t addr, uint8_t val)
 {
-	return max14916_reg_transceive_diag(dev, addr, val, MAX149x6_WRITE);
+	struct max14916_data *data = dev->data;
+	int ret = max14916_reg_transceive_diag(dev, addr, val, MAX149x6_WRITE);
+
+	if (ret == 0) {
+		data->reg_cache[addr] = val;
+	}
+
+	return ret;
 }
 
 static int gpio_max14916_diag_chan_get(const struct device *dev)
@@ -206,7 +234,6 @@ static int gpio_max14916_port_set_bits_raw(const struct device *dev, gpio_port_p
 {
 	struct max14916_data *data = dev->data;
 	int ret;
-	uint32_t reg_val = 0;
 
 	if (k_is_in_isr()) {
 		return -EWOULDBLOCK;
@@ -214,15 +241,10 @@ static int gpio_max14916_port_set_bits_raw(const struct device *dev, gpio_port_p
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	ret = max14916_reg_read_diag(dev, MAX14916_SETOUT_REG);
-	if (ret < 0) {
-		goto out;
-	}
-	reg_val = ret | pins;
+	uint8_t reg_val = data->reg_cache[MAX14916_SETOUT_REG] | pins;
 
 	ret = max14916_reg_write_diag(dev, MAX14916_SETOUT_REG, reg_val);
 
-out:
 	k_mutex_unlock(&data->lock);
 	return ret;
 }
@@ -231,7 +253,6 @@ static int gpio_max14916_port_clear_bits_raw(const struct device *dev, gpio_port
 {
 	struct max14916_data *data = dev->data;
 	int ret;
-	uint32_t reg_val = 0;
 
 	if (k_is_in_isr()) {
 		return -EWOULDBLOCK;
@@ -239,15 +260,10 @@ static int gpio_max14916_port_clear_bits_raw(const struct device *dev, gpio_port
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	ret = max14916_reg_read_diag(dev, MAX14916_SETOUT_REG);
-	if (ret < 0) {
-		goto out;
-	}
-	reg_val = ret & ~pins;
+	uint8_t reg_val = data->reg_cache[MAX14916_SETOUT_REG] & ~pins;
 
 	ret = max14916_reg_write_diag(dev, MAX14916_SETOUT_REG, reg_val);
 
-out:
 	k_mutex_unlock(&data->lock);
 	return ret;
 }
@@ -258,7 +274,6 @@ static int gpio_max14916_port_set_masked_raw(const struct device *dev,
 {
 	struct max14916_data *data = dev->data;
 	int ret;
-	uint32_t reg_val;
 
 	if (k_is_in_isr()) {
 		return -EWOULDBLOCK;
@@ -266,15 +281,11 @@ static int gpio_max14916_port_set_masked_raw(const struct device *dev,
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	ret = max14916_reg_read_diag(dev, MAX14916_SETOUT_REG);
-	if (ret < 0) {
-		goto out;
-	}
-	reg_val = (ret & ~mask) | (value & mask);
+	uint8_t reg_val = (data->reg_cache[MAX14916_SETOUT_REG] & ~mask) |
+			  (value & mask);
 
 	ret = max14916_reg_write_diag(dev, MAX14916_SETOUT_REG, reg_val);
 
-out:
 	k_mutex_unlock(&data->lock);
 	return ret;
 }
@@ -353,7 +364,6 @@ static int gpio_max14916_port_toggle_bits(const struct device *dev, gpio_port_pi
 {
 	struct max14916_data *data = dev->data;
 	int ret;
-	uint32_t reg_val = 0;
 
 	if (k_is_in_isr()) {
 		return -EWOULDBLOCK;
@@ -361,17 +371,10 @@ static int gpio_max14916_port_toggle_bits(const struct device *dev, gpio_port_pi
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	ret = max14916_reg_read_diag(dev, MAX14916_SETOUT_REG);
-	if (ret < 0) {
-		goto out;
-	}
-
-	reg_val = ret;
-	reg_val ^= pins;
+	uint8_t reg_val = data->reg_cache[MAX14916_SETOUT_REG] ^ pins;
 
 	ret = max14916_reg_write_diag(dev, MAX14916_SETOUT_REG, reg_val);
 
-out:
 	k_mutex_unlock(&data->lock);
 	return ret;
 }

@@ -226,6 +226,7 @@ struct max149x6_config {
 struct max14916_data {
 	struct gpio_driver_data common;
 	struct k_mutex lock;
+	uint8_t reg_cache[16];
 	struct {
 		uint8_t ovr_ld;
 		uint8_t curr_lim;
