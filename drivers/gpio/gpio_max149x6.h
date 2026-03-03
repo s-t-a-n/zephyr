@@ -11,16 +11,6 @@
 #define MAX149x6_READ  0
 #define MAX149x6_WRITE 1
 
-#define MAX149X6_GET_BIT(val, i) (0x1 & ((val) >> (i)))
-#define PRINT_ERR_BIT(bit1, bit2)                                                                  \
-	if ((bit1) & (bit2))                                                                       \
-		LOG_ERR("[%s] %d", #bit1, bit1)
-#define PRINT_ERR(bit)                                                                             \
-	if (bit)                                                                                   \
-		LOG_ERR("[DIAG] [%s] %d\n", #bit, bit)
-#define PRINT_INF(bit) LOG_INFO("[%s] %d\n", #bit, bit)
-#define LOG_DIAG(...)  Z_LOG(LOG_LEVEL_ERR, __VA_ARGS__)
-
 /**
  * @brief Compute the CRC5 value for an array of bytes when writing to MAX149X6
  * @param data - array of data to encode
