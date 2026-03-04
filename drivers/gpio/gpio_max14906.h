@@ -12,7 +12,6 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/spi.h>
 
-#define MAX14906_FAULT2_ENABLES 5
 #define MAX14906_CHANNELS       4
 #define MAX14916_CHANNELS       8
 #define MAX149x6_MAX_PKT_SIZE   3
@@ -37,12 +36,6 @@
 #define MAX149x6_CHIP_ADDR_MASK GENMASK(7, 6)
 #define MAX149x6_ADDR_MASK      GENMASK(4, 1)
 #define MAX149x6_RW_MASK        BIT(0)
-
-/* DoiLevel register */
-#define MAX14906_DOI_LEVEL_MASK(x) BIT(x)
-
-/* SetOUT register */
-#define MAX14906_HIGHO_MASK(x) BIT(x)
 
 #define MAX14906_DO_MASK(x)     (GENMASK(1, 0) << (2 * (x)))
 #define MAX14906_CH_DIR_MASK(x) BIT((x) + 4)
@@ -239,7 +232,7 @@ union max14906_config_curr_lim {
 	} reg_bits;
 };
 
-union max14906_mask {
+union max14906_fault_mask {
 	uint8_t reg_raw;
 	struct {
 		uint8_t OVER_LD_M: 1; /* BIT0 */
@@ -298,6 +291,9 @@ struct max149x6_config {
 	union max14906_config_curr_lim curr_lim;
 	union max14906_config_do config_do;
 	union max14906_config_di config_di;
+	union max14906_opn_wr_en opn_wr_en;
+	union max14906_sht_vdd_en sht_vdd_en;
+	union max14906_fault_mask fault_mask;
 	enum max149x6_spi_addr spi_addr;
 	uint8_t pkt_size;
 };
@@ -308,21 +304,6 @@ struct max14906_data {
 	struct gpio_driver_data common;
 	struct k_mutex lock;
 	uint8_t reg_cache[16];
-	struct {
-		union max14906_doi_level doi_level;
-		union max14906_ovr_ld_chf ovr_ld;
-		union max14906_opn_wir_chf opn_wir;
-		union max14906_sht_vdd_chf sht_vdd;
-	} chan;
-	struct {
-		union max14906_opn_wr_en opn_wr_en;
-		union max14906_sht_vdd_en sht_vdd_en;
-	} chan_en;
-	struct {
-		union max14906_interrupt interrupt;
-		union max14906_global_err glob_err;
-		union max14906_mask mask;
-	} glob;
 };
 
 #endif

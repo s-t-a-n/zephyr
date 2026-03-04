@@ -225,10 +225,9 @@ err_clean_on_power_max14916:
 	return ret;
 }
 
-static int gpio_max14916_config_diag(const struct device *dev)
+static int gpio_max14916_init_registers(const struct device *dev)
 {
 	const struct max14916_config *config = dev->config;
-	struct max14916_data *data = dev->data;
 	int ret;
 
 	/* Configure global registers */
@@ -242,26 +241,23 @@ static int gpio_max14916_config_diag(const struct device *dev)
 		return ret;
 	}
 
-	ret = max14916_reg_write(dev, MAX14916_CONFIG_MASK, data->glob.mask.reg_raw);
+	ret = max14916_reg_write(dev, MAX14916_CONFIG_MASK, config->fault_mask.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
 
 	/* Configure per-channel registers */
-	ret = max14916_reg_write(dev, MAX14916_OW_ON_EN_REG,
-				 data->chan_en.ow_on_en.reg_raw);
+	ret = max14916_reg_write(dev, MAX14916_OW_ON_EN_REG, config->ow_on_en.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
 
-	ret = max14916_reg_write(dev, MAX14916_OW_OFF_EN_REG,
-				 data->chan_en.ow_off_en.reg_raw);
+	ret = max14916_reg_write(dev, MAX14916_OW_OFF_EN_REG, config->ow_off_en.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
 
-	ret = max14916_reg_write(dev, MAX14916_SHT_VDD_EN_REG,
-				 data->chan_en.sht_vdd_en.reg_raw);
+	ret = max14916_reg_write(dev, MAX14916_SHT_VDD_EN_REG, config->sht_vdd_en.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
@@ -354,7 +350,7 @@ static int gpio_max14916_init(const struct device *dev)
 		return ret;
 	}
 
-	ret = gpio_max14916_config_diag(dev);
+	ret = gpio_max14916_init_registers(dev);
 	if (ret < 0) {
 		return ret;
 	}
@@ -395,11 +391,7 @@ static DEVICE_API(gpio, gpio_max14916_api) = {
 		.config2.reg_bits.OW_OFF_CS = DT_INST_PROP(id, ow_off_cs),                         \
 		.config2.reg_bits.WD_TO = DT_INST_PROP(id, wd_to),                                 \
 		.pkt_size = (DT_INST_PROP(id, crc_en) & 0x1) ? 3 : 2,                              \
-		.spi_addr = DT_INST_PROP(id, spi_addr),                                            \
-	};                                                                                         \
-                                                                                                   \
-	static struct max14916_data max##model##_##id##_data = {                                   \
-		.chan_en.ow_on_en.reg_bits =                                                       \
+		.ow_on_en.reg_bits =                                                               \
 			{                                                                          \
 				.OW_ON_EN1 = DT_INST_PROP_BY_IDX(id, ow_on_en, 0),                 \
 				.OW_ON_EN2 = DT_INST_PROP_BY_IDX(id, ow_on_en, 1),                 \
@@ -410,7 +402,7 @@ static DEVICE_API(gpio, gpio_max14916_api) = {
 				.OW_ON_EN7 = DT_INST_PROP_BY_IDX(id, ow_on_en, 6),                 \
 				.OW_ON_EN8 = DT_INST_PROP_BY_IDX(id, ow_on_en, 7),                 \
 			},                                                                         \
-		.chan_en.ow_off_en.reg_bits =                                                      \
+		.ow_off_en.reg_bits =                                                              \
 			{                                                                          \
 				.OW_OFF_EN1 = DT_INST_PROP_BY_IDX(id, ow_off_en, 0),               \
 				.OW_OFF_EN2 = DT_INST_PROP_BY_IDX(id, ow_off_en, 1),               \
@@ -421,7 +413,7 @@ static DEVICE_API(gpio, gpio_max14916_api) = {
 				.OW_OFF_EN7 = DT_INST_PROP_BY_IDX(id, ow_off_en, 6),               \
 				.OW_OFF_EN8 = DT_INST_PROP_BY_IDX(id, ow_off_en, 7),               \
 			},                                                                         \
-		.chan_en.sht_vdd_en.reg_bits =                                                     \
+		.sht_vdd_en.reg_bits =                                                             \
 			{                                                                          \
 				.SH_VDD_EN1 = DT_INST_PROP_BY_IDX(id, sh_vdd_en, 0),               \
 				.SH_VDD_EN2 = DT_INST_PROP_BY_IDX(id, sh_vdd_en, 1),               \
@@ -432,7 +424,11 @@ static DEVICE_API(gpio, gpio_max14916_api) = {
 				.SH_VDD_EN7 = DT_INST_PROP_BY_IDX(id, sh_vdd_en, 6),               \
 				.SH_VDD_EN8 = DT_INST_PROP_BY_IDX(id, sh_vdd_en, 7),               \
 			},                                                                         \
-		.glob.mask.reg_raw = DT_INST_PROP(id, fault_mask),                                 \
+		.fault_mask.reg_raw = DT_INST_PROP(id, fault_mask),                                      \
+		.spi_addr = DT_INST_PROP(id, spi_addr),                                            \
+	};                                                                                         \
+                                                                                                   \
+	static struct max14916_data max##model##_##id##_data = {                                   \
 	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(id, &gpio_max14916_init, NULL, &max##model##_##id##_data,            \

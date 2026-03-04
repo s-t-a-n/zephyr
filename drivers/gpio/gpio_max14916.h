@@ -40,12 +40,6 @@
 #define MAX149x6_ADDR_MASK      GENMASK(4, 1)
 #define MAX149x6_RW_MASK        BIT(0)
 
-/* DoiLevel register */
-#define MAX149x6_DOI_LEVEL_MASK(x) BIT(x)
-
-/* SetOUT register */
-#define MAX14906_HIGHO_MASK(x) BIT(x)
-
 #define MAX14906_DO_MASK(x)     (GENMASK(1, 0) << (2 * (x)))
 #define MAX14906_CH_DIR_MASK(x) BIT((x) + 4)
 #define MAX14906_CH(x)          (x)
@@ -55,9 +49,6 @@
 /* Config1 register */
 #define MAX14906_SLED_MASK BIT(1)
 #define MAX14906_FLED_MASK BIT(0)
-
-#define MAX14906_CHAN_MASK_LSB(x) BIT(x)
-#define MAX14906_CHAN_MASK_MSB(x) BIT((x) + 4)
 
 enum max149x6_spi_addr {
 	MAX14906_ADDR_0, /* A0=0, A1=0 */
@@ -137,7 +128,7 @@ union max14916_config2 {
 	} reg_bits;
 };
 
-union max14916_mask {
+union max14916_fault_mask {
 	uint8_t reg_raw;
 	struct {
 		uint8_t OVER_LD_M: 1; /* BIT0 */
@@ -217,6 +208,10 @@ struct max149x6_config {
 	bool crc_en;
 	union max14916_config1 config1;
 	union max14916_config2 config2;
+	union max14916_ow_off_en ow_off_en;
+	union max14916_ow_on_en ow_on_en;
+	union max14916_sht_vdd_en sht_vdd_en;
+	union max14916_fault_mask fault_mask;
 	enum max149x6_spi_addr spi_addr;
 	uint8_t pkt_size;
 };
@@ -227,23 +222,6 @@ struct max14916_data {
 	struct gpio_driver_data common;
 	struct k_mutex lock;
 	uint8_t reg_cache[16];
-	struct {
-		uint8_t ovr_ld;
-		uint8_t curr_lim;
-		uint8_t ow_off;
-		uint8_t ow_on;
-		uint8_t sht_vdd;
-	} chan;
-	struct {
-		union max14916_ow_off_en ow_off_en;
-		union max14916_ow_on_en ow_on_en;
-		union max14916_sht_vdd_en sht_vdd_en;
-	} chan_en;
-	struct {
-		union max14916_interrupt interrupt;
-		union max14916_global_err glob_err;
-		union max14916_mask mask;
-	} glob;
 };
 
 #endif

@@ -295,9 +295,8 @@ err_clean_on_power_max14906:
 	return ret;
 }
 
-static int gpio_max14906_config_diag(const struct device *dev)
+static int gpio_max14906_init_registers(const struct device *dev)
 {
-	struct max14906_data *data = dev->data;
 	const struct max14906_config *config = dev->config;
 	int ret;
 
@@ -317,7 +316,7 @@ static int gpio_max14906_config_diag(const struct device *dev)
 		return ret;
 	}
 
-	ret = max14906_reg_write(dev, MAX14906_CONFIG_MASK, data->glob.mask.reg_raw);
+	ret = max14906_reg_write(dev, MAX14906_CONFIG_MASK, config->fault_mask.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
@@ -333,14 +332,12 @@ static int gpio_max14906_config_diag(const struct device *dev)
 		return ret;
 	}
 
-	ret = max14906_reg_write(dev, MAX14906_OPN_WR_EN_REG,
-				 data->chan_en.opn_wr_en.reg_raw);
+	ret = max14906_reg_write(dev, MAX14906_OPN_WR_EN_REG, config->opn_wr_en.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
 
-	ret = max14906_reg_write(dev, MAX14906_SHT_VDD_EN_REG,
-				 data->chan_en.sht_vdd_en.reg_raw);
+	ret = max14906_reg_write(dev, MAX14906_SHT_VDD_EN_REG, config->sht_vdd_en.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
@@ -451,7 +448,7 @@ static int gpio_max14906_init(const struct device *dev)
 		return ret;
 	}
 
-	ret = gpio_max14906_config_diag(dev);
+	ret = gpio_max14906_init_registers(dev);
 	if (ret < 0) {
 		return ret;
 	}
@@ -506,11 +503,7 @@ static DEVICE_API(gpio, gpio_max14906_api) = {
 			DT_INST_PROP(id, above_vdd_prot_en),                                       \
 		/* VDD_FAULT_SEL omitted: muxes VDD faults into DoiLevel, breaks port_get_raw */ \
 		.config_di.reg_bits.TYP_2_DI = DT_INST_PROP(id, typ2_di),                         \
-		.spi_addr = DT_INST_PROP(id, spi_addr),                                            \
-	};                                                                                         \
-                                                                                                   \
-	static struct max14906_data max14906_##id##_data = {                                       \
-		.chan_en.opn_wr_en.reg_bits =                                                      \
+		.opn_wr_en.reg_bits =                                                              \
 			{                                                                          \
 				.OW_OFF_EN1 = DT_INST_PROP_BY_IDX(id, ow_en, 0),                   \
 				.OW_OFF_EN2 = DT_INST_PROP_BY_IDX(id, ow_en, 1),                   \
@@ -521,7 +514,7 @@ static DEVICE_API(gpio, gpio_max14906_api) = {
 				.GDRV_EN3 = DT_INST_PROP_BY_IDX(id, gdrv_en, 2),                   \
 				.GDRV_EN4 = DT_INST_PROP_BY_IDX(id, gdrv_en, 3),                   \
 			},                                                                         \
-		.chan_en.sht_vdd_en.reg_bits =                                                     \
+		.sht_vdd_en.reg_bits =                                                             \
 			{                                                                          \
 				.VDD_OV_EN1 = DT_INST_PROP_BY_IDX(id, vdd_ov_en, 0),               \
 				.VDD_OV_EN2 = DT_INST_PROP_BY_IDX(id, vdd_ov_en, 1),               \
@@ -532,7 +525,11 @@ static DEVICE_API(gpio, gpio_max14906_api) = {
 				.SH_VDD_EN3 = DT_INST_PROP_BY_IDX(id, sh_vdd_en, 2),               \
 				.SH_VDD_EN4 = DT_INST_PROP_BY_IDX(id, sh_vdd_en, 3),               \
 			},                                                                         \
-		.glob.mask.reg_raw = DT_INST_PROP(id, fault_mask),                                 \
+		.fault_mask.reg_raw = DT_INST_PROP(id, fault_mask),                                      \
+		.spi_addr = DT_INST_PROP(id, spi_addr),                                            \
+	};                                                                                         \
+                                                                                                   \
+	static struct max14906_data max14906_##id##_data = {                                       \
 	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(id, &gpio_max14906_init, NULL, &max14906_##id##_data,                \

@@ -126,21 +126,18 @@ static int max149x6_reg_transceive(const struct device *dev, uint8_t addr, uint8
 		}
 	}
 
-	/* byte0 is first diagnostic byte */
 	if (rx_diag_buff != NULL) {
+		/* byte0 is first diagnostic byte */
 		rx_diag_buff[0] = local_rx_buff[0];
-	}
 
-	/* byte1 for WRITE: second diagnostic byte */
-	if (MAX149x6_WRITE == rw) {
-		if (rx_diag_buff != NULL) {
+		/* byte1 for WRITE: second diagnostic byte */
+		if (MAX149x6_WRITE == rw) {
 			rx_diag_buff[1] = local_rx_buff[1];
 		}
-		return ret;
 	}
 
 	/* byte1 for READ: register value returned to caller */
-	if (MAX149x6_READ == rw) {
+	if (rw == MAX149x6_READ) {
 		return local_rx_buff[1];
 	}
 
