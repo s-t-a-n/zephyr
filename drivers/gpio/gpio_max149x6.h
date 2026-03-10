@@ -14,6 +14,9 @@
 #define MAX149x6_BRST_MASK        BIT(5)
 #define MAX149x6_BURST_READ_NREGS 6
 
+#define MAX149x6_LOWER_NIBBLE(reg) FIELD_GET(GENMASK(3, 0), (reg))
+#define MAX149x6_UPPER_NIBBLE(reg) FIELD_GET(GENMASK(7, 4), (reg))
+
 /**
  * @brief Compute the CRC5 value for an array of bytes when writing to MAX149X6
  * @param data - array of data to encode

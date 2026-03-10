@@ -12,9 +12,8 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/spi.h>
 
-#define MAX14906_CHANNELS       4
-#define MAX14916_CHANNELS       8
-#define MAX149x6_MAX_PKT_SIZE   3
+#define MAX14906_CHANNELS        4
+#define MAX149x6_MAX_PKT_SIZE    3
 
 #define MAX14906_SETOUT_REG      0x0
 #define MAX14906_SETLED_REG      0x1
@@ -30,27 +29,27 @@
 #define MAX14906_CONFIG2_REG     0xB
 #define MAX14906_CONFIG_DI_REG   0xC
 #define MAX14906_CONFIG_DO_REG   0xD
-#define MAX14906_CONFIG_CURR_LIM 0xE
-#define MAX14906_CONFIG_MASK     0xF
+#define MAX14906_CURR_LIM_REG    0xE
+#define MAX14906_FAULT_MASK_REG  0xF
 
-#define MAX149x6_CHIP_ADDR_MASK GENMASK(7, 6)
-#define MAX149x6_ADDR_MASK      GENMASK(4, 1)
-#define MAX149x6_RW_MASK        BIT(0)
+#define MAX149x6_CHIP_ADDR_MASK  GENMASK(7, 6)
+#define MAX149x6_ADDR_MASK       GENMASK(4, 1)
+#define MAX149x6_RW_MASK         BIT(0)
 
-#define MAX14906_DO_MASK(x)     (GENMASK(1, 0) << (2 * (x)))
-#define MAX14906_CH_DIR_MASK(x) BIT((x) + 4)
-#define MAX14906_CH(x)          (x)
-#define MAX14906_IEC_TYPE_MASK  BIT(7)
-#define MAX14906_CL_MASK(x)     (GENMASK(1, 0) << (2 * (x)))
+#define MAX14906_DO_MASK(x)      (GENMASK(1, 0) << (2 * (x)))
+#define MAX14906_CH_DIR_MASK(x)  BIT((x) + 4)
+#define MAX14906_CH(x)           (x)
+#define MAX14906_IEC_TYPE_MASK   BIT(7)
+#define MAX14906_CL_MASK(x)      (GENMASK(1, 0) << (2 * (x)))
 
 /**
  * @brief Hardwired device address
  */
 enum max149x6_spi_addr {
-	MAX14906_ADDR_0, /* A0=0, A1=0 */
-	MAX14906_ADDR_1, /* A0=1, A1=0 */
-	MAX14906_ADDR_2, /* A0=0, A1=1 */
-	MAX14906_ADDR_3, /* A0=1, A1=1 */
+	MAX149x6_ADDR_0, /* A0=0, A1=0 */
+	MAX149x6_ADDR_1, /* A0=1, A1=0 */
+	MAX149x6_ADDR_2, /* A0=0, A1=1 */
+	MAX149x6_ADDR_3, /* A0=1, A1=1 */
 };
 
 enum max14906_iec_type {
@@ -94,10 +93,10 @@ union max14906_doi_level {
 		uint8_t VDDOK_FAULT2: 1;
 		uint8_t VDDOK_FAULT3: 1;
 		uint8_t VDDOK_FAULT4: 1;
-		uint8_t SAFE_DAMAGE_F1: 1;
-		uint8_t SAFE_DAMAGE_F2: 1;
-		uint8_t SAFE_DAMAGE_F3: 1;
-		uint8_t SAFE_DAMAGE_F4: 1; /* BIT7 */
+		uint8_t SAFE_DEMAG_F1: 1;
+		uint8_t SAFE_DEMAG_F2: 1;
+		uint8_t SAFE_DEMAG_F3: 1;
+		uint8_t SAFE_DEMAG_F4: 1; /* BIT7 */
 	} reg_bits;
 };
 

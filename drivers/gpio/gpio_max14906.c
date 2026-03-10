@@ -100,7 +100,7 @@ static int gpio_max14906_port_set_bits_raw(const struct device *dev, gpio_port_p
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	uint8_t output_pins = pins & 0x0f;
+	uint8_t output_pins = MAX149x6_LOWER_NIBBLE(pins);
 	uint8_t reg_val = data->reg_cache[MAX14906_SETOUT_REG] | output_pins;
 
 	ret = max14906_reg_write(dev, MAX14906_SETOUT_REG, reg_val);
@@ -120,7 +120,7 @@ static int gpio_max14906_port_clear_bits_raw(const struct device *dev, gpio_port
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	uint8_t output_pins = pins & 0x0f;
+	uint8_t output_pins = MAX149x6_LOWER_NIBBLE(pins);
 	uint8_t reg_val = data->reg_cache[MAX14906_SETOUT_REG] & ~output_pins;
 
 	ret = max14906_reg_write(dev, MAX14906_SETOUT_REG, reg_val);
@@ -142,7 +142,7 @@ static int gpio_max14906_port_set_masked_raw(const struct device *dev,
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	uint8_t output_mask = mask & 0x0f;
+	uint8_t output_mask = MAX149x6_LOWER_NIBBLE(mask);
 	uint8_t reg_val = (data->reg_cache[MAX14906_SETOUT_REG] & ~output_mask) |
 			  (value & output_mask);
 
@@ -234,7 +234,7 @@ static int gpio_max14906_port_get_raw(const struct device *dev, gpio_port_value_
 		goto out;
 	}
 
-	*value = ret & 0x0f;
+	*value = MAX149x6_LOWER_NIBBLE(ret);
 	ret = 0;
 
 out:
@@ -253,7 +253,7 @@ static int gpio_max14906_port_toggle_bits(const struct device *dev, gpio_port_pi
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
-	uint8_t output_pins = pins & 0x0f;
+	uint8_t output_pins = MAX149x6_LOWER_NIBBLE(pins);
 	uint8_t reg_val = data->reg_cache[MAX14906_SETOUT_REG] ^ output_pins;
 
 	ret = max14906_reg_write(dev, MAX14906_SETOUT_REG, reg_val);
@@ -316,7 +316,7 @@ static int gpio_max14906_init_registers(const struct device *dev)
 		return ret;
 	}
 
-	ret = max14906_reg_write(dev, MAX14906_CONFIG_MASK, config->fault_mask.reg_raw);
+	ret = max14906_reg_write(dev, MAX14906_FAULT_MASK_REG, config->fault_mask.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}
@@ -327,7 +327,7 @@ static int gpio_max14906_init_registers(const struct device *dev)
 		return ret;
 	}
 
-	ret = max14906_reg_write(dev, MAX14906_CONFIG_CURR_LIM, config->curr_lim.reg_raw);
+	ret = max14906_reg_write(dev, MAX14906_CURR_LIM_REG, config->curr_lim.reg_raw);
 	if (ret < 0) {
 		return ret;
 	}

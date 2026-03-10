@@ -12,12 +12,8 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/spi.h>
 
-#define MAX14906_ENABLE  1
-#define MAX14906_DISABLE 0
-
-#define MAX149x6_MAX_PKT_SIZE 3
-
-#define MAX14916_CHANNELS 8
+#define MAX14916_CHANNELS        8
+#define MAX149x6_MAX_PKT_SIZE    3
 
 #define MAX14916_SETOUT_REG      0x0
 #define MAX14916_SET_FLED_REG    0x1
@@ -34,27 +30,18 @@
 #define MAX14916_SHT_VDD_EN_REG  0xC
 #define MAX14916_CONFIG1_REG     0xD
 #define MAX14916_CONFIG2_REG     0xE
-#define MAX14916_CONFIG_MASK     0xF
+#define MAX14916_FAULT_MASK_REG  0xF
 
-#define MAX149x6_CHIP_ADDR_MASK GENMASK(7, 6)
-#define MAX149x6_ADDR_MASK      GENMASK(4, 1)
-#define MAX149x6_RW_MASK        BIT(0)
+#define MAX149x6_CHIP_ADDR_MASK  GENMASK(7, 6)
+#define MAX149x6_ADDR_MASK       GENMASK(4, 1)
+#define MAX149x6_RW_MASK         BIT(0)
 
-#define MAX14906_DO_MASK(x)     (GENMASK(1, 0) << (2 * (x)))
-#define MAX14906_CH_DIR_MASK(x) BIT((x) + 4)
-#define MAX14906_CH(x)          (x)
-#define MAX14906_IEC_TYPE_MASK  BIT(7)
-#define MAX14906_CL_MASK(x)     (GENMASK(1, 0) << (2 * (x)))
-
-/* Config1 register */
-#define MAX14906_SLED_MASK BIT(1)
-#define MAX14906_FLED_MASK BIT(0)
 
 enum max149x6_spi_addr {
-	MAX14906_ADDR_0, /* A0=0, A1=0 */
-	MAX14906_ADDR_1, /* A0=1, A1=0 */
-	MAX14906_ADDR_2, /* A0=0, A1=1 */
-	MAX14906_ADDR_3, /* A0=1, A1=1 */
+	MAX149x6_ADDR_0, /* A0=0, A1=0 */
+	MAX149x6_ADDR_1, /* A0=1, A1=0 */
+	MAX149x6_ADDR_2, /* A0=0, A1=1 */
+	MAX149x6_ADDR_3, /* A0=1, A1=1 */
 };
 
 enum max14916_fled_time {
@@ -98,7 +85,7 @@ union max14916_interrupt {
 		uint8_t OW_OFF_FLT: 1;
 		uint8_t OW_ON_FLT: 1;
 		uint8_t SHT_VDD_FLT: 1;
-		uint8_t DE_MAG_FLT: 1;
+		uint8_t THERM_ERR: 1;
 		uint8_t SUPPLY_ERR: 1;
 		uint8_t COM_ERR: 1; /* BIT7 */
 	} reg_bits;
