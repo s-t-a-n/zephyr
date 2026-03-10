@@ -204,11 +204,11 @@ struct max149x6_config {
 };
 
 #define max14916_config max149x6_config
-
 struct max14916_data {
 	struct gpio_driver_data common;
 	struct k_mutex lock;
 	uint8_t reg_cache[16];
+	uint8_t cached_sdo_summary;
 };
 
 #endif

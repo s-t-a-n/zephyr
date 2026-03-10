@@ -15,6 +15,7 @@
 
 LOG_MODULE_REGISTER(gpio_max14906);
 
+#include <zephyr/drivers/gpio/gpio_max149x6.h>
 #include <zephyr/drivers/gpio/gpio_utils.h>
 
 #include "gpio_max14906.h"
@@ -25,10 +26,12 @@ LOG_MODULE_REGISTER(gpio_max14906);
 static int max14906_reg_read(const struct device *dev, uint8_t addr)
 {
 	struct max14906_data *data = dev->data;
-	int ret = max149x6_reg_transceive(dev, addr, 0, NULL, MAX149x6_READ);
+	uint8_t sdo[2];
+	int ret = max149x6_reg_transceive(dev, addr, 0, sdo, MAX149x6_READ);
 
 	if (ret >= 0) {
 		data->reg_cache[addr] = ret;
+		data->cached_sdo_summary |= sdo[0] & 0x3f;
 	}
 
 	return ret;
@@ -37,10 +40,12 @@ static int max14906_reg_read(const struct device *dev, uint8_t addr)
 static int max14906_reg_write(const struct device *dev, uint8_t addr, uint8_t val)
 {
 	struct max14906_data *data = dev->data;
-	int ret = max149x6_reg_transceive(dev, addr, val, NULL, MAX149x6_WRITE);
+	uint8_t sdo[2];
+	int ret = max149x6_reg_transceive(dev, addr, val, sdo, MAX149x6_WRITE);
 
 	if (ret == 0) {
 		data->reg_cache[addr] = val;
+		data->cached_sdo_summary |= sdo[0] & 0x3f;
 	}
 
 	return ret;
@@ -234,6 +239,7 @@ static int gpio_max14906_port_get_raw(const struct device *dev, gpio_port_value_
 		goto out;
 	}
 
+	data->cached_safe_demag_reg |= MAX149x6_UPPER_NIBBLE(ret);
 	*value = MAX149x6_LOWER_NIBBLE(ret);
 	ret = 0;
 
@@ -262,37 +268,61 @@ static int gpio_max14906_port_toggle_bits(const struct device *dev, gpio_port_pi
 	return ret;
 }
 
-static int gpio_max14906_clean_on_power(const struct device *dev)
+int max14906_fetch_diagnostics(const struct device *dev, struct max14906_diagnostics *diag)
 {
+	struct max14906_data *data = dev->data;
+	uint8_t regs[1 + MAX149x6_BURST_READ_NREGS];
 	int ret;
 
-	/* Clear the latched faults generated at power up */
-	ret = max14906_reg_read(dev, MAX14906_OPN_WIR_FLT_REG);
-	if (ret < 0) {
-		LOG_ERR("Error reading MAX14906_OPN_WIR_FLT_REG");
-		goto err_clean_on_power_max14906;
+	if (diag == NULL) {
+		return -EINVAL;
 	}
 
-	ret = max14906_reg_read(dev, MAX14906_OVR_LD_REG);
-	if (ret < 0) {
-		LOG_ERR("Error reading MAX14906_OVR_LD_REG");
-		goto err_clean_on_power_max14906;
+	if (k_is_in_isr()) {
+		return -EWOULDBLOCK;
 	}
 
-	ret = max14906_reg_read(dev, MAX14906_SHT_VDD_FLT_REG);
+	*diag = (struct max14906_diagnostics){0};
+
+	k_mutex_lock(&data->lock, K_FOREVER);
+
+	ret = max149x6_burst_read(dev, MAX14906_DOILEVEL_REG, regs);
 	if (ret < 0) {
-		LOG_ERR("Error reading MAX14906_SHD_VDD_FLT_REG");
-		goto err_clean_on_power_max14906;
+		goto out;
 	}
 
-	ret = max14906_reg_read(dev, MAX14906_GLOB_ERR_REG);
-	if (ret < 0) {
-		LOG_ERR("Error reading MAX14906_GLOBAL_FLT_REG");
-		goto err_clean_on_power_max14906;
-	}
+	data->cached_safe_demag_reg |= MAX149x6_UPPER_NIBBLE(regs[1]);
+	diag->safe_demag = data->cached_safe_demag_reg;
+	diag->interrupt = regs[2];
+	diag->overload = MAX149x6_LOWER_NIBBLE(regs[3]);
+	diag->current_limit = MAX149x6_UPPER_NIBBLE(regs[3]);
+	diag->open_wire_off = MAX149x6_LOWER_NIBBLE(regs[4]);
+	diag->above_vdd = MAX149x6_UPPER_NIBBLE(regs[4]);
+	diag->short_to_vdd = MAX149x6_LOWER_NIBBLE(regs[5]);
+	diag->vdd_overvoltage = MAX149x6_UPPER_NIBBLE(regs[5]);
+	diag->global_err = regs[6];
 
-err_clean_on_power_max14906:
+	data->cached_safe_demag_reg = 0;
+	data->cached_sdo_summary = 0;
+
+out:
+	k_mutex_unlock(&data->lock);
 	return ret;
+}
+
+bool max14906_has_pending_faults(const struct device *dev)
+{
+	const struct max14906_data *data = dev->data;
+
+	return data->cached_sdo_summary != 0;
+}
+
+static int gpio_max14906_clean_on_power(const struct device *dev)
+{
+	struct max14906_diagnostics diag;
+
+	/* Clear the latched faults generated at power up */
+	return max14906_fetch_diagnostics(dev, &diag);
 }
 
 static int gpio_max14906_init_registers(const struct device *dev)
@@ -349,7 +379,7 @@ static int gpio_max14906_init(const struct device *dev)
 {
 	const struct max14906_config *config = dev->config;
 	struct max14906_data *data = dev->data;
-	int err = 0;
+	int ret = 0;
 
 	LOG_DBG(" --- GPIO MAX14906 init IN ---");
 
@@ -358,10 +388,10 @@ static int gpio_max14906_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	err = k_mutex_init(&data->lock);
-	if (err != 0) {
+	ret = k_mutex_init(&data->lock);
+	if (ret != 0) {
 		LOG_ERR("unable to initialize mutex");
-		return err;
+		return ret;
 	}
 
 	/* setup READY gpio - normal low */
@@ -371,10 +401,10 @@ static int gpio_max14906_init(const struct device *dev)
 			return -ENODEV;
 		}
 
-		err = gpio_pin_configure_dt(&config->ready_gpio, GPIO_INPUT);
-		if (err < 0) {
+		ret = gpio_pin_configure_dt(&config->ready_gpio, GPIO_INPUT);
+		if (ret < 0) {
 			LOG_ERR("Failed to configure reset GPIO");
-			return err;
+			return ret;
 		}
 	}
 
@@ -385,10 +415,10 @@ static int gpio_max14906_init(const struct device *dev)
 			return -ENODEV;
 		}
 
-		err = gpio_pin_configure_dt(&config->fault_gpio, GPIO_INPUT);
-		if (err < 0) {
+		ret = gpio_pin_configure_dt(&config->fault_gpio, GPIO_INPUT);
+		if (ret < 0) {
 			LOG_ERR("Failed to configure DC GPIO");
-			return err;
+			return ret;
 		}
 	}
 
@@ -399,10 +429,10 @@ static int gpio_max14906_init(const struct device *dev)
 			return -ENODEV;
 		}
 
-		err = gpio_pin_configure_dt(&config->sync_gpio, GPIO_OUTPUT_INACTIVE);
-		if (err < 0) {
+		ret = gpio_pin_configure_dt(&config->sync_gpio, GPIO_OUTPUT_INACTIVE);
+		if (ret < 0) {
 			LOG_ERR("Failed to configure busy GPIO");
-			return err;
+			return ret;
 		}
 
 		gpio_pin_set_dt(&config->sync_gpio, 1);
@@ -415,10 +445,10 @@ static int gpio_max14906_init(const struct device *dev)
 			return -ENODEV;
 		}
 
-		err = gpio_pin_configure_dt(&config->en_gpio, GPIO_OUTPUT_INACTIVE);
-		if (err < 0) {
+		ret = gpio_pin_configure_dt(&config->en_gpio, GPIO_OUTPUT_INACTIVE);
+		if (ret < 0) {
 			LOG_ERR("Failed to configure busy GPIO");
-			return err;
+			return ret;
 		}
 
 		gpio_pin_set_dt(&config->en_gpio, 1);
@@ -437,7 +467,7 @@ static int gpio_max14906_init(const struct device *dev)
 		LOG_DBG("[GPIO] EN    - %d\n", gpio_pin_get_dt(&config->en_gpio));
 	}
 
-	int ret = gpio_max14906_clean_on_power(dev);
+	ret = gpio_max14906_clean_on_power(dev);
 	if (ret < 0) {
 		return ret;
 	}

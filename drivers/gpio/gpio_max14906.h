@@ -298,11 +298,15 @@ struct max149x6_config {
 };
 
 #define max14906_config max149x6_config
-
 struct max14906_data {
 	struct gpio_driver_data common;
 	struct k_mutex lock;
 	uint8_t reg_cache[16];
+	uint8_t cached_sdo_summary;
+
+	/* SafeDemag is packed in the upper nibble together with DoiLevel in register in MAX14906.
+           We therefore have to cache SafeDemag for it would otherwise be cleared and thus lost. */
+	uint8_t cached_safe_demag_reg;
 };
 
 #endif

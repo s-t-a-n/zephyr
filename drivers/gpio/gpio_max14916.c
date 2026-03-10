@@ -15,6 +15,7 @@
 
 LOG_MODULE_REGISTER(gpio_max14916);
 
+#include <zephyr/drivers/gpio/gpio_max149x6.h>
 #include <zephyr/drivers/gpio/gpio_utils.h>
 
 #include "gpio_max14916.h"
@@ -23,10 +24,12 @@ LOG_MODULE_REGISTER(gpio_max14916);
 static int max14916_reg_read(const struct device *dev, uint8_t addr)
 {
 	struct max14916_data *data = dev->data;
-	int ret = max149x6_reg_transceive(dev, addr, 0, NULL, MAX149x6_READ);
+	uint8_t sdo[2];
+	int ret = max149x6_reg_transceive(dev, addr, 0, sdo, MAX149x6_READ);
 
 	if (ret >= 0) {
 		data->reg_cache[addr] = ret;
+		data->cached_sdo_summary |= sdo[0] & 0x3f;
 	}
 
 	return ret;
@@ -35,10 +38,12 @@ static int max14916_reg_read(const struct device *dev, uint8_t addr)
 static int max14916_reg_write(const struct device *dev, uint8_t addr, uint8_t val)
 {
 	struct max14916_data *data = dev->data;
-	int ret = max149x6_reg_transceive(dev, addr, val, NULL, MAX149x6_WRITE);
+	uint8_t sdo[2];
+	int ret = max149x6_reg_transceive(dev, addr, val, sdo, MAX149x6_WRITE);
 
 	if (ret == 0) {
 		data->reg_cache[addr] = val;
+		data->cached_sdo_summary |= sdo[0] & 0x3f;
 	}
 
 	return ret;
@@ -192,37 +197,63 @@ static int gpio_max14916_port_toggle_bits(const struct device *dev, gpio_port_pi
 	return ret;
 }
 
-static int gpio_max14916_clean_on_power(const struct device *dev)
+int max14916_fetch_diagnostics(const struct device *dev, struct max14916_diagnostics *diag)
 {
+	struct max14916_data *data = dev->data;
+	uint8_t regs[1 + MAX149x6_BURST_READ_NREGS];
 	int ret;
 
-	/* Clear the latched faults generated at power up */
-	ret = max14916_reg_read(dev, MAX14916_OW_OFF_FLT_REG);
-	if (ret < 0) {
-		LOG_ERR("Error reading MAX14916_OW_OFF_FLT_REG");
-		goto err_clean_on_power_max14916;
+	if (diag == NULL) {
+		return -EINVAL;
 	}
 
-	ret = max14916_reg_read(dev, MAX14916_OVR_LD_REG);
-	if (ret < 0) {
-		LOG_ERR("Error reading MAX14916_OVR_LD_REG");
-		goto err_clean_on_power_max14916;
+	if (k_is_in_isr()) {
+		return -EWOULDBLOCK;
 	}
 
-	ret = max14916_reg_read(dev, MAX14916_SHT_VDD_FLT_REG);
+	*diag = (struct max14916_diagnostics){0};
+
+	k_mutex_lock(&data->lock, K_FOREVER);
+
+	/* burst starts at 0x04; reading Interrupt separately is required to de-assert FAULT (FLatchEn=1) */
+	ret = max14916_reg_read(dev, MAX14916_INT_REG);
 	if (ret < 0) {
-		LOG_ERR("Error reading MAX14916_SHD_VDD_FLT_REG");
-		goto err_clean_on_power_max14916;
+		goto out;
+	}
+	diag->interrupt = ret;
+
+	ret = max149x6_burst_read(dev, MAX14916_OVR_LD_REG, regs);
+	if (ret < 0) {
+		goto out;
 	}
 
-	ret = max14916_reg_read(dev, MAX14916_GLOB_ERR_REG);
-	if (ret < 0) {
-		LOG_ERR("Error reading MAX14916_GLOBAL_FLT_REG");
-		goto err_clean_on_power_max14916;
-	}
+	diag->overload      = regs[1];
+	diag->current_limit = regs[2];
+	diag->open_wire_off = regs[3];
+	diag->open_wire_on  = regs[4];
+	diag->short_to_vdd  = regs[5];
+	diag->global_err    = regs[6];
 
-err_clean_on_power_max14916:
+	data->cached_sdo_summary = 0;
+
+out:
+	k_mutex_unlock(&data->lock);
 	return ret;
+}
+
+bool max14916_has_pending_faults(const struct device *dev)
+{
+	const struct max14916_data *data = dev->data;
+
+	return data->cached_sdo_summary != 0;
+}
+
+static int gpio_max14916_clean_on_power(const struct device *dev)
+{
+	struct max14916_diagnostics diag;
+
+	/* Clear the latched faults generated at power up */
+	return max14916_fetch_diagnostics(dev, &diag);
 }
 
 static int gpio_max14916_init_registers(const struct device *dev)
@@ -269,7 +300,7 @@ static int gpio_max14916_init(const struct device *dev)
 {
 	const struct max14916_config *config = dev->config;
 	struct max14916_data *data = dev->data;
-	int err = 0;
+	int ret = 0;
 
 	LOG_DBG(" --- GPIO MAX14916 init IN ---");
 
@@ -278,10 +309,10 @@ static int gpio_max14916_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	err = k_mutex_init(&data->lock);
-	if (err != 0) {
+	ret = k_mutex_init(&data->lock);
+	if (ret != 0) {
 		LOG_ERR("unable to initialize mutex");
-		return err;
+		return ret;
 	}
 
 	/* setup READY gpio - normal low */
@@ -290,10 +321,10 @@ static int gpio_max14916_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	err = gpio_pin_configure_dt(&config->ready_gpio, GPIO_INPUT);
-	if (err < 0) {
+	ret = gpio_pin_configure_dt(&config->ready_gpio, GPIO_INPUT);
+	if (ret < 0) {
 		LOG_ERR("Failed to configure reset GPIO");
-		return err;
+		return ret;
 	}
 
 	/* setup FLT gpio - normal high */
@@ -302,10 +333,10 @@ static int gpio_max14916_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	err = gpio_pin_configure_dt(&config->fault_gpio, GPIO_INPUT);
-	if (err < 0) {
+	ret = gpio_pin_configure_dt(&config->fault_gpio, GPIO_INPUT);
+	if (ret < 0) {
 		LOG_ERR("Failed to configure DC GPIO");
-		return err;
+		return ret;
 	}
 
 	/* setup LATCH gpio - normal high */
@@ -314,10 +345,10 @@ static int gpio_max14916_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	err = gpio_pin_configure_dt(&config->sync_gpio, GPIO_OUTPUT_INACTIVE);
-	if (err < 0) {
+	ret = gpio_pin_configure_dt(&config->sync_gpio, GPIO_OUTPUT_INACTIVE);
+	if (ret < 0) {
 		LOG_ERR("Failed to configure busy GPIO");
-		return err;
+		return ret;
 	}
 
 	/* setup LATCH gpio - normal high */
@@ -326,10 +357,10 @@ static int gpio_max14916_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	err = gpio_pin_configure_dt(&config->en_gpio, GPIO_OUTPUT_INACTIVE);
-	if (err < 0) {
+	ret = gpio_pin_configure_dt(&config->en_gpio, GPIO_OUTPUT_INACTIVE);
+	if (ret < 0) {
 		LOG_ERR("Failed to configure busy GPIO");
-		return err;
+		return ret;
 	}
 
 	gpio_pin_set_dt(&config->en_gpio, 1);
@@ -340,7 +371,7 @@ static int gpio_max14916_init(const struct device *dev)
 	LOG_ERR("[GPIO] SYNC  - %d\n", gpio_pin_get_dt(&config->sync_gpio));
 	LOG_ERR("[GPIO] EN    - %d\n", gpio_pin_get_dt(&config->en_gpio));
 
-	int ret = gpio_max14916_clean_on_power(dev);
+	ret = gpio_max14916_clean_on_power(dev);
 	if (ret < 0) {
 		return ret;
 	}
